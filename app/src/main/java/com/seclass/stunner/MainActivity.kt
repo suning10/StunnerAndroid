@@ -27,8 +27,8 @@ class MainActivity : ComponentActivity() {
     private val detector by lazy { TFLiteBallDetector().also { it.initialize(this) } }
 
     // ← swap between SimpleGoalDetector() and TrajectoryGoalDetector() based on test performance
-    private val goalDetector by lazy { SimpleGoalDetector() }
-    // private val goalDetector by lazy { TrajectoryGoalDetector() }
+    //private val goalDetector by lazy { SimpleGoalDetector() }
+    private val goalDetector by lazy { TrajectoryGoalDetector() }
 
     private val detectionRepo by lazy { DetectionRepository(detector, goalDetector, goalEventRepo, apiRepo) }
 
@@ -41,6 +41,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        android.util.Log.i("Stunner/Main", "onCreate — app started")
         setContent {
             StunnerTheme {
                 Surface(
@@ -58,6 +59,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        detector.release()
+        if (!isChangingConfigurations) {
+            detector.release()
+        }
     }
 }

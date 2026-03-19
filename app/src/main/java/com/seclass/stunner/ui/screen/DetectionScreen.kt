@@ -12,6 +12,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.*
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -22,7 +23,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
@@ -104,7 +109,6 @@ fun DetectionScreen(
                             .build()
 
                         imageAnalysis.setAnalyzer(cameraExecutor) { imageProxy ->
-                            // Manual conversion from RGBA_8888 planes — no toBitmap() needed
                             val bitmap = Bitmap.createBitmap(
                                 imageProxy.width, imageProxy.height, Bitmap.Config.ARGB_8888
                             )
@@ -125,6 +129,52 @@ fun DetectionScreen(
                 },
                 modifier = Modifier.fillMaxSize()
             )
+
+            // Ball bounding box overlay
+            state.ballBounds?.let { bounds ->
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val left   = bounds.left   * size.width
+                    val top    = bounds.top    * size.height
+                    val right  = bounds.right  * size.width
+                    val bottom = bounds.bottom * size.height
+                    val boxColor = Color(0xFF00E676)   // bright green
+
+                    // Bounding box
+                    drawRect(
+                        color = boxColor,
+                        topLeft = Offset(left, top),
+                        size = Size(right - left, bottom - top),
+                        style = Stroke(width = 4f)
+                    )
+
+                    // "BALL" label background + text
+                    val labelText = "BALL"
+                    val textPaint = android.graphics.Paint().apply {
+                        color = android.graphics.Color.BLACK
+                        textSize = 36f
+                        isFakeBoldText = true
+                        isAntiAlias = true
+                    }
+                    val textWidth  = textPaint.measureText(labelText)
+                    val textHeight = 36f
+                    val padH = 8f
+                    val padV = 4f
+                    val labelLeft = left
+                    val labelTop  = (top - textHeight - padV * 2).coerceAtLeast(0f)
+
+                    drawRect(
+                        color = boxColor,
+                        topLeft = Offset(labelLeft, labelTop),
+                        size = Size(textWidth + padH * 2, textHeight + padV * 2)
+                    )
+                    drawContext.canvas.nativeCanvas.drawText(
+                        labelText,
+                        labelLeft + padH,
+                        labelTop + textHeight,
+                        textPaint
+                    )
+                }
+            }
 
             // Top stats bar
             Row(
@@ -165,6 +215,17 @@ fun DetectionScreen(
                     .align(Alignment.BottomEnd)
                     .padding(16.dp)
             )
+
+            // Debug: simulate a shot without needing the real model
+            Button(
+                onClick = { viewModel.simulateShot() },
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF6F00))
+            ) {
+                Text("SIM SHOT", color = Color.White, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }

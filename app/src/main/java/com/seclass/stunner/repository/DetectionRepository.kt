@@ -18,7 +18,7 @@ import kotlin.math.sqrt
  */
 class DetectionRepository(
     private val ballDetector: BallDetector,
-    private val goalDetector: GoalDetector,
+    val goalDetector: GoalDetector,
     private val goalEventRepository: GoalEventRepository,
     private val apiRepository: ApiRepository
 ) {
@@ -30,8 +30,12 @@ class DetectionRepository(
 
     var deviceId: String? = null
 
-    suspend fun processFrame(bitmap: Bitmap): GoalEvent? {
-        val detections = ballDetector.detect(bitmap)
+    /** Step 1: run ML detection only. Call every frame for live ball overlay. */
+    fun detectBall(bitmap: Bitmap): List<com.seclass.stunner.model.BallDetection> =
+        ballDetector.detect(bitmap)
+
+    /** Step 2: evaluate trajectory and record a goal/miss event. Only call when not debounced. */
+    suspend fun evaluateGoal(detections: List<com.seclass.stunner.model.BallDetection>): GoalEvent? {
         val result = goalDetector.onFrame(detections) ?: return null
 
         val zone = if (result.isGoal) GoalZone.fromNormalized(result.cx, result.cy) else null
@@ -47,6 +51,9 @@ class DetectionRepository(
         apiRepository.postGoalEvent(event)
         return event
     }
+
+    @Deprecated("Use detectBall + evaluateGoal separately", ReplaceWith("evaluateGoal(detectBall(bitmap))"))
+    suspend fun processFrame(bitmap: Bitmap): GoalEvent? = evaluateGoal(detectBall(bitmap))
 
     private fun computePlacementAccuracy(cx: Float, cy: Float): Double {
         val dist = sqrt((cx - 0.5).pow(2) + (cy - 0.5).pow(2))
